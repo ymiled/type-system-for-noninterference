@@ -1,1 +1,7 @@
-# secure-typing-
+# secure-typing
+
+In this work, I implement a type system for a simple programming language containing expressions, assignments, conditional branhces, loops, no-ops and functions. I extend an existing set of typing rules and semantics designed for simple commands in this simple language in order to handle the integration of functions. This implementation is the practical approach related to my research paper ("Formal methods : implementing a secure-type system for an imperative programming language"). The "type_checker.ml" file contains the implementation of expressions, commands and functions for this language. A code is represented by a certian phrase p, which could be an expression or a command. I also implemented a representation of formal proof trees, which represent a proof, in a form of a n-ary tree, that a code has a certain type in a specific typing environement gamma (gamma indicates for each variable if it is private or public). I also implemented a type checker that verifies if a proof tree is correct, i.e it does prove that a certain code has certain type, according to the typing rules.
+
+The "examples.ml" file contains some examples of proof trees for some codes.
+
+Ps: I proved that the typing rules uphold the non-interference property, which asserts that when two configurations differ only on public variables, any code, well typed according to these rules, applied to these configurations yields configurations differing only in public variables. This ensures that modifying public variables, which could be manipulated by malicious actors, divulges no information about private data. There's a complete absence of leakage from private to public variables.
