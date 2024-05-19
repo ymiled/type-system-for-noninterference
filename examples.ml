@@ -1,4 +1,4 @@
-
+#use "type_checker.ml";;
 let ex1 = 
   SubDeriv(
     Command(Assign("y", (Int 5))),
@@ -148,20 +148,11 @@ let res = check_type ex gamma
 
 let example = "func f (int x) { y := x + 1; return y}; x := f(5)"
 
-let assign_subtree_example =
-  AssignDeriv(
-    "a", 
-    Exp (FuncCall("f", Int 5)), 
-    Ncmd(L, 1), 
-    VarDeriv("a", T L),
-    FuncNonVoidCallDeriv("f", Int 5, T L, ConstDeriv(5))
-  )
-
 let assign_tree = 
   SubDeriv(
-    Command (Assign("x", FuncCall("f", Int 5))),
-    Cmd(L, L),   (* wanted type *)
-    Ncmd(L, 1),   (* the type given by the rules *)
+    Command (Assign("a", FuncCall("f", Int 5))),
+    Cmd(L, L),   
+    Ncmd(L, 1),  
     AssignDeriv(
       "a", 
       Exp (FuncCall("f", Int 5)), 
@@ -177,7 +168,7 @@ let assign_tree =
     )
   )
 
-let function_command_tree = (* c : L cmd 1*)
+let function_command_tree =
   AssignDeriv(
     "y", 
     Exp (Binop(Plus, Var "x", Int 1)),
@@ -189,15 +180,6 @@ let function_command_tree = (* c : L cmd 1*)
       VarDeriv("x", T L), 
       ConstDeriv(1)
     )
-  )
-
-let proof_func_example = 
-  FuncDefDeriv(
-    "f",
-    "x",
-    Seq( Assign("y", Binop(Plus, Var "x", Int 1)), (Return (Var "y")) ),
-    Func(L, L),
-    function_command_tree
   )
 
 
@@ -232,7 +214,7 @@ let func_tree =
   )
 
 
-let final_tree = 
+let example_proof_tree = 
   SeqDeriv(
     Command (
       Seq (
@@ -245,10 +227,9 @@ let final_tree =
     assign_tree
   )
 
-let test1 = check_type assign_subtree_example [("a", Var L)]
 
-let test2 = check_type assign_tree_example [("a", Var L)]
+let test2 = check_type assign_tree [("a", Var L)]
 
-let test3 = check_type func_tree_example [("a", Var L)]
+let test3 = check_type func_tree [("a", Var L)]
 
-let final_tree_test = check_type final_tree [("a", Var L)]
+let verification = check_type example_proof_tree [("a", Var L)]
