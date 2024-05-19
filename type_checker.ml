@@ -144,14 +144,14 @@ let check_type tree gamma =
     match tree with
     | VarDeriv(x, T L) -> 
       expected_phrase = Exp(Var x) && (expected_type = T L) &&
-      (List.mem_assoc x gamma) && (List.assoc x gamma = Var L)
+      (List.mem_assoc x gamma) && (List.assoc x gamma = Var L), gamma
 
     | VarDeriv(x, T H) -> 
       expected_phrase = Exp(Var x) && (expected_type = T H) &&
-      (List.mem_assoc x gamma) && (List.assoc x gamma = Var H)
+      (List.mem_assoc x gamma) && (List.assoc x gamma = Var H), gamma
 
     | ConstDeriv(n) -> 
-      (expected_phrase = (Exp(Int n))) && (expected_type = T L )
+      (expected_phrase = (Exp(Int n))) && (expected_type = T L ), gamma
 
     | BinopDeriv(p, t, tree1, tree2) -> 
       begin 
@@ -159,24 +159,28 @@ let check_type tree gamma =
         | Exp(Binop(_, e1, e2)) -> 
           let verify_phrase = p = expected_phrase in 
           let verify_type = t = expected_type in
-          let type_tree1 = aux tree1 (Exp e1) t gamma in
-          let type_tree2 = aux tree2 (Exp e2) t gamma in
-          verify_phrase && verify_type && type_tree1 && type_tree2
+          let type_tree1, _ = aux tree1 (Exp e1) t gamma in
+          let type_tree2, _ = aux tree2 (Exp e2) t gamma in
+          verify_phrase && verify_type && type_tree1 && type_tree2, gamma
         |_ -> failwith"problem in the structure of the tree (binop)"
       end
 
-    | SkipDeriv(t) -> t = Ncmd(H, 1)
+    | SkipDeriv(t) -> t = Ncmd(H, 1), gamma
 
     | AssignDeriv(x, Exp exp, Ncmd(tau, 1), son_x, son_exp) when not (List.mem_assoc x gamma) -> 
       (*a definition of a new variable, inside a function *)
       let gamma' = (x, Var tau)::gamma in
+      let verify_x_tree, _ = aux son_x (Exp(Var x)) (T tau) gamma' in 
+      let verify_exp_tree, _ = aux son_exp (Exp exp) (T tau) gamma' in
       (expected_phrase = Command (Assign(x, exp))) && (expected_type = Ncmd(tau, 1)) &&
-      (aux son_x (Exp(Var x)) (T tau) gamma') && (aux son_exp (Exp exp) (T tau) gamma')
+      verify_x_tree && verify_exp_tree, gamma'
 
     | AssignDeriv(x, Exp exp, Ncmd(tau, 1), son_x, son_exp) ->
+      let verify_exp_tree, _ = aux son_exp (Exp exp) (T tau) gamma in 
+      let verify_x_tree, _ = aux son_x (Exp(Var x)) (T tau) gamma in
       (expected_phrase = Command (Assign(x, exp))) && (expected_type = Ncmd(tau, 1)) &&
       (List.mem_assoc x gamma) && (List.assoc x gamma = Var tau) &&
-      (aux son_x (Exp(Var x)) (T tau) gamma) && (aux son_exp (Exp exp) (T tau) gamma)
+      verify_exp_tree && verify_x_tree, gamma
 
     | IfDeriv(p, t, tree_exp, tree1, tree2) -> 
       begin
@@ -187,31 +191,31 @@ let check_type tree gamma =
             | Cmd(H, H) -> 
               let verify_phrase = p = expected_phrase in
               let verify_type = t = expected_type in
-              let verify_exp = aux tree_exp (Exp e) (T H) gamma in
-              let verify_tree1 = aux tree1 (Command c1) t gamma in
-              let verify_tree2 = aux tree2 (Command c2) t gamma in
+              let verify_exp, _ = aux tree_exp (Exp e) (T H) gamma in
+              let verify_tree1, _ = aux tree1 (Command c1) t gamma in
+              let verify_tree2, _ = aux tree2 (Command c2) t gamma in
               verify_phrase && verify_type && verify_exp && 
-              verify_tree1 && verify_tree2
+              verify_tree1 && verify_tree2, gamma
 
             | Cmd(tau1, tau2) -> 
               let verify_phrase = p = expected_phrase in
               let verify_type = t = expected_type in
-              let verify_exp = aux tree_exp (Exp e) (T L) gamma in
-              let verify_tree1 = aux tree1 (Command c1) t gamma in
-              let verify_tree2 = aux tree2 (Command c2) t gamma in
+              let verify_exp, _ = aux tree_exp (Exp e) (T L) gamma in
+              let verify_tree1, _ = aux tree1 (Command c1) t gamma in
+              let verify_tree2, _ = aux tree2 (Command c2) t gamma in
               verify_phrase && verify_type && verify_exp && 
-              verify_tree1 && verify_tree2
+              verify_tree1 && verify_tree2, gamma
 
             | Ncmd(tau, n) when n >= 1 ->
               let verify_phrase = p = expected_phrase in
               let verify_type = t = expected_type in
-              let verify_exp = aux tree_exp (Exp e) (T tau) gamma in
-              let verify_tree1 = aux tree1 (Command c1) (Ncmd(tau, n - 1)) gamma in
-              let verify_tree2 = aux tree2 (Command c2) (Ncmd(tau, n - 1)) gamma in
+              let verify_exp, _ = aux tree_exp (Exp e) (T tau) gamma in
+              let verify_tree1, _ = aux tree1 (Command c1) (Ncmd(tau, n - 1)) gamma in
+              let verify_tree2, _ = aux tree2 (Command c2) (Ncmd(tau, n - 1)) gamma in
               verify_phrase && verify_type && verify_exp && 
-              verify_tree1 && verify_tree2 
+              verify_tree1 && verify_tree2, gamma 
 
-            |_ -> false
+            |_ -> false, gamma
 
           )
 
@@ -227,20 +231,20 @@ let check_type tree gamma =
             | Cmd(H, H) -> 
               let verify_phrase = p = expected_phrase in
               let verify_type = t = expected_type in
-              let verify_exp = aux tree_exp (Exp e) (T H) gamma in
-              let verify_command = aux tree_cmd (Command c) t gamma in
-              verify_phrase && verify_type && verify_exp && verify_command
+              let verify_exp, _ = aux tree_exp (Exp e) (T H) gamma in
+              let verify_command, _ = aux tree_cmd (Command c) t gamma in
+              verify_phrase && verify_type && verify_exp && verify_command, gamma
 
             | Cmd(tau1, tau2) -> 
               let verify_phrase = p = expected_phrase in
               let verify_type = t = expected_type in
-              let verify_exp = aux tree_exp (Exp e) (T L) gamma in
-              let verify_command = aux tree_cmd (Command c) t gamma in
+              let verify_exp, _ = aux tree_exp (Exp e) (T L) gamma in
+              let verify_command, _ = aux tree_cmd (Command c) t gamma in
               let comp = less_or_eq tau1 tau2 in
               verify_phrase && verify_type && verify_exp && 
-              verify_command && comp
+              verify_command && comp, gamma
 
-            |_ -> false
+            |_ -> false, gamma
 
           )
         
@@ -257,18 +261,18 @@ let check_type tree gamma =
             | Cmd(tau, H) -> 
               let verify_phrase = p = expected_phrase in
               let verify_type = t = expected_type in
-              let verify_c1 = aux tree1 (Command c1) t gamma in
-              let verfiy_c2 = aux tree2 (Command c2) (Cmd(H, H)) gamma in
-              verify_phrase && verify_type && verify_c1 && verfiy_c2
+              let verify_c1, _ = aux tree1 (Command c1) t gamma in
+              let verfiy_c2, _ = aux tree2 (Command c2) (Cmd(H, H)) gamma in
+              verify_phrase && verify_type && verify_c1 && verfiy_c2, gamma
 
             | Cmd(tau1, tau2) -> 
               let verify_phrase = p = expected_phrase in
               let verify_type = t = expected_type in
-              let verify_c1 = aux tree1 (Command c1) (Cmd(tau1, L)) gamma in
-              let verfiy_c2 = aux tree2 (Command c2) t gamma in
-              verify_phrase && verify_type && verify_c1 && verfiy_c2
+              let verify_c1, _ = aux tree1 (Command c1) (Cmd(tau1, L)) gamma in
+              let verfiy_c2, _ = aux tree2 (Command c2) t gamma in
+              verify_phrase && verify_type && verify_c1 && verfiy_c2, gamma
 
-            | _ -> false
+            | _ -> false, gamma
           )
 
         |_ -> failwith"problem in the structure of the tree (Seq)"
@@ -281,10 +285,10 @@ let check_type tree gamma =
         | T tau -> 
           let verify_phrase = expected_phrase = Command(Return e) in
           let verify_type = expected_type = t in
-          let verify_tree = aux tree (Exp e) (T tau) gamma in
-          verify_phrase && verify_type && verify_tree
+          let verify_tree, _ = aux tree (Exp e) (T tau) gamma in
+          verify_phrase && verify_type && verify_tree, gamma
 
-        | _ -> false
+        | _ -> false, gamma
       end
 
     | FuncDefDeriv(f, x, c, t, tree1) ->
@@ -297,16 +301,16 @@ let check_type tree gamma =
           |Seq(c1, Return (Var y)) -> 
             let verify_phrase = expected_phrase = Command(FuncDef(f, x, c)) in
             let verify_type = expected_type = Func(tau1, tau2) in
-            let verify_tree = aux tree1 (Command c1) (Ncmd(tau1, 1)) gamma' in 
-            let verify_return = (List.mem_assoc y gamma') && (List.assoc y gamma' = Var tau2) in
-            if verify_phrase && verify_type && verify_tree then (functions_list := (f, c, t) :: !functions_list; true)
-            else false
+            let verify_tree, gamma'' = aux tree1 (Command c1) (Ncmd(tau1, 1)) gamma' in 
+            let verify_return = (List.mem_assoc y gamma'') && (List.assoc y gamma'' = Var tau2) in
+            if verify_phrase && verify_type && verify_tree && verify_return then (functions_list := (f, c, t) :: !functions_list; true, gamma')
+            else false, gamma'
             
 
-          | _ -> false
+          | _ -> false, gamma
           end
 
-      | _ -> false
+      | _ -> false, gamma
       )
 
     | FuncNonVoidCallDeriv(f, e, t, tree) -> 
@@ -317,12 +321,12 @@ let check_type tree gamma =
         | (_, _, Func(tau1, tau2)) -> 
           begin
             match e, tau1 with
-            | Var a, L -> aux tree (Exp e) (Var tau1) gamma
-            | Int n , L-> aux tree (Exp e) (T tau1) gamma
-            | _, _ -> false
+            | Var a, L -> let verify_tree, _ = aux tree (Exp e) (Var tau1) gamma in verify_phrase && verify_type && verify_tree, gamma
+            | Int n , L-> let verify_tree, _ = aux tree (Exp e) (T tau1) gamma in verify_phrase && verify_type && verify_tree, gamma
+            | _, _ -> false, gamma
           end
 
-        | _ -> false  
+        | _ -> false, gamma  
       end
     
     | FuncVoidCallDeriv(f, x, c, t) -> 
@@ -331,18 +335,18 @@ let check_type tree gamma =
       begin
         match List.find (fun (g, _, _) -> g = f) !functions_list with
         | (_, _, Func(tau1, tau2)) -> 
-          List.assoc x gamma = Var tau1 && t = T tau2 && verify_phrase && verify_type
-        | _ -> false    
+          List.assoc x gamma = Var tau1 && t = T tau2 && verify_phrase && verify_type, gamma
+        | _ -> false, gamma    
       end
     
     | SubDeriv(p, t1, t2, son1, subtype_tree) -> 
       let verify_phrase = p = expected_phrase in
       let verify_type = t1 = expected_type in
-      let verify_son = aux son1 p t2 gamma in
+      let verify_son, _ = aux son1 p t2 gamma in
       let verify_subrules = check_sub_rules subtype_tree t2 t1 in
-      verify_phrase && verify_type && verify_subrules && verify_son
+      verify_phrase && verify_type && verify_subrules && verify_son, gamma
 
-    |_ -> false
+    |_ -> false, gamma
 
     in let p, t = extract_phrase_and_type tree in
-    aux tree p t gamma
+    fst (aux tree p t gamma)
